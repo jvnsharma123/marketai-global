@@ -90,8 +90,21 @@ export default function Landing({ session }) {
       </section>
 
       {/* Footer */}
-      <footer style={{ background: '#1e293b', color: '#94a3b8', textAlign: 'center', padding: '1.5rem', fontSize: '0.85rem' }}>
-        © 2026 MarketAI Global · AI-powered marketing for businesses worldwide
+      <footer style={{ background: '#1e293b', color: '#94a3b8', padding: '2rem 1.5rem' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+            <span style={{ fontWeight: 800, color: '#fff', fontSize: '1.1rem' }}>MarketAI Global</span>
+            <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+              <Link to="/privacy" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.85rem' }}>Privacy Policy</Link>
+              <Link to="/terms" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.85rem' }}>Terms & Conditions</Link>
+              <Link to="/refund" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.85rem' }}>Refund Policy</Link>
+              <Link to="/pricing" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.85rem' }}>Pricing</Link>
+            </div>
+          </div>
+          <div style={{ borderTop: '1px solid #334155', paddingTop: '1rem', fontSize: '0.82rem', textAlign: 'center' }}>
+            © 2026 MarketAI Global · AI-powered marketing for businesses worldwide · marketai.global@gmail.com
+          </div>
+        </div>
       </footer>
     </div>
   );
