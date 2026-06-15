@@ -1,30 +1,88 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/api';
 import Navbar from '../components/Navbar';
 
 const PLANS = [
   {
     key: 'free', name: 'Free', usd: '$0', inr: '₹0', period: '/month',
+    amountINR: 0, amountUSD: 0,
     gens: '5 generations/month',
-    features: ['All 4 marketing channels','50+ languages','Basic history','Email support'],
-    cta: 'Get started free', highlight: false,
+    features: ['All 4 marketing channels', '50+ languages', 'Basic history', 'Email support'],
+    highlight: false,
   },
   {
     key: 'starter', name: 'Starter', usd: '$19', inr: '₹999', period: '/month',
+    amountINR: 999, amountUSD: 19,
     gens: '100 generations/month',
-    features: ['All 4 marketing channels','50+ languages','Full history & saved content','Priority support','Custom tone preferences'],
-    cta: 'Start Starter plan', highlight: true,
+    features: ['All 4 marketing channels', '50+ languages', 'Full history & saved content', 'Priority support', 'Custom tone preferences'],
+    highlight: true,
   },
   {
     key: 'pro', name: 'Pro', usd: '$49', inr: '₹2,499', period: '/month',
+    amountINR: 2499, amountUSD: 49,
     gens: 'Unlimited generations',
-    features: ['Everything in Starter','Unlimited generations','Bulk generation (coming soon)','API access (coming soon)','Dedicated support'],
-    cta: 'Go Pro', highlight: false,
+    features: ['Everything in Starter', 'Unlimited generations', 'Bulk generation (coming soon)', 'API access (coming soon)', 'Dedicated support'],
+    highlight: false,
   },
 ];
 
 export default function Pricing({ session }) {
   const [currency, setCurrency] = useState('inr');
+  const [loading, setLoading] = useState('');
+  const navigate = useNavigate();
+
+  const handleRazorpayPayment = async (plan) => {
+    if (!session) { navigate('/signup'); return; }
+    setLoading(plan.key);
+    try {
+      // Create order on server
+      const res = await fetch('/api/razorpay-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: plan.amountINR, currency: 'INR', plan: plan.key })
+      });
+      const order = await res.json();
+
+      // Load Razorpay checkout script
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      document.body.appendChild(script);
+      script.onload = () => {
+        const options = {
+          key: process.env.REACT_APP_RAZORPAY_KEY_ID,
+          amount: order.amount,
+          currency: 'INR',
+          name: 'MarketAI Global',
+          description: `${plan.name} Plan — Monthly Subscription`,
+          order_id: order.id,
+          handler: async (response) => {
+            // Payment successful — upgrade user plan
+            await supabase.from('profiles').update({ plan: plan.key, generations_used: 0 }).eq('id', session.user.id);
+            alert(`✅ Payment successful! Your ${plan.name} plan is now active.`);
+            navigate('/dashboard');
+          },
+          prefill: { email: session?.user?.email || '' },
+          theme: { color: '#6366f1' },
+          modal: { ondismiss: () => setLoading('') }
+        };
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+        setLoading('');
+      };
+    } catch (err) {
+      console.error(err);
+      alert('Payment failed. Please try again.');
+      setLoading('');
+    }
+  };
+
+  const handleInfinityPayment = (plan) => {
+    if (!session) { navigate('/signup'); return; }
+    // Open WhatsApp to contact for international payment setup
+    const msg = encodeURIComponent(`Hi, I'd like to upgrade to the MarketAI Global ${plan.name} plan ($${plan.amountUSD}/month). My email is ${session?.user?.email}`);
+    window.open(`https://wa.me/+91XXXXXXXXXX?text=${msg}`, '_blank');
+  };
 
   return (
     <div>
@@ -41,7 +99,7 @@ export default function Pricing({ session }) {
             <button className={`tab ${currency === 'usd' ? 'active' : ''}`} style={{ minWidth: 80 }} onClick={() => setCurrency('usd')}>$ USD</button>
           </div>
           <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.5rem' }}>
-            {currency === 'inr' ? 'Pay in INR via Razorpay (UPI, cards, net banking)' : 'Pay in USD via PayPal (cards, PayPal balance)'}
+            {currency === 'inr' ? '🇮🇳 Pay in INR via Razorpay (UPI, cards, net banking)' : '🌍 Pay in USD via Infinity (cards, bank transfer)'}
           </p>
         </div>
 
@@ -70,25 +128,42 @@ export default function Pricing({ session }) {
               </ul>
 
               {plan.key === 'free' ? (
-                <Link to={session ? '/generate' : '/signup'} className="btn btn-secondary btn-full">{plan.cta}</Link>
+                <Link to={session ? '/generate' : '/signup'} className="btn btn-secondary btn-full">Get started free</Link>
+              ) : currency === 'inr' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <button
+                    className="btn btn-primary btn-full"
+                    onClick={() => handleRazorpayPayment(plan)}
+                    disabled={loading === plan.key}
+                  >
+                    {loading === plan.key ? <><span className="spinner" /> Processing...</> : `Pay ${plan.inr}/mo with Razorpay`}
+                  </button>
+                  <p style={{ fontSize: '0.75rem', color: '#94a3b8', textAlign: 'center' }}>UPI · Cards · Net Banking · Wallets</p>
+                </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {currency === 'inr' ? (
-                    <button className="btn btn-primary btn-full" onClick={() => alert(`Razorpay integration coming soon!\n\nFor now, contact us on WhatsApp to upgrade:\n+91-XXXXXXXXXX\n\nPlan: ${plan.name} — ${plan.inr}/month`)}>
-                      Pay with Razorpay (UPI/Card)
-                    </button>
-                  ) : (
-                    <button className="btn btn-primary btn-full" style={{ background: '#0070ba' }} onClick={() => alert(`PayPal integration coming soon!\n\nFor now, contact us to upgrade:\nmarketai@yourdomain.com\n\nPlan: ${plan.name} — ${plan.usd}/month`)}>
-                      Pay with PayPal
-                    </button>
-                  )}
-                  <p style={{ fontSize: '0.75rem', color: '#94a3b8', textAlign: 'center' }}>
-                    Cancel anytime · Secure payment
-                  </p>
+                  <button
+                    className="btn btn-primary btn-full"
+                    style={{ background: '#0f172a' }}
+                    onClick={() => handleInfinityPayment(plan)}
+                  >
+                    Pay {plan.usd}/mo via Infinity
+                  </button>
+                  <p style={{ fontSize: '0.75rem', color: '#94a3b8', textAlign: 'center' }}>Cards · Bank Transfer · 0.5% fee only</p>
                 </div>
               )}
             </div>
           ))}
+        </div>
+
+        {/* Payment trust badges */}
+        <div style={{ textAlign: 'center', marginTop: '2rem', padding: '1.5rem', background: '#f8fafc', borderRadius: 12 }}>
+          <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.5rem' }}>🔒 Secure payments powered by</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 700, color: '#2563eb' }}>Razorpay</span>
+            <span style={{ fontWeight: 700, color: '#0f172a' }}>Infinity</span>
+          </div>
+          <p style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.5rem' }}>Cancel anytime · No hidden fees · 100% secure</p>
         </div>
 
         {/* FAQ */}
@@ -97,7 +172,7 @@ export default function Pricing({ session }) {
           {[
             { q: 'What counts as one generation?', a: 'One click of "Generate" = one generation. It creates all 4 channels (social, WhatsApp, ads, email) at once.' },
             { q: 'Can I change my plan anytime?', a: 'Yes. Upgrade or downgrade at any time. Changes take effect immediately.' },
-            { q: 'Which payment methods are accepted?', a: 'Indian customers: UPI, debit/credit cards, net banking via Razorpay. International customers: PayPal, credit/debit cards via PayPal.' },
+            { q: 'Which payment methods are accepted?', a: 'Indian customers: UPI, debit/credit cards, net banking via Razorpay. International customers: cards and bank transfers via Infinity at just 0.5% fee.' },
             { q: 'Does it work for any language?', a: 'Yes — MarketAI generates content in 50+ languages including Hindi, Tamil, Arabic, Spanish, French and more.' },
           ].map(item => (
             <div key={item.q} style={{ borderBottom: '1px solid #e2e8f0', padding: '1rem 0' }}>
