@@ -81,7 +81,7 @@ export default function Pricing({ session }) {
     if (!session) { navigate('/signup'); return; }
     // Open WhatsApp to contact for international payment setup
     const msg = encodeURIComponent(`Hi, I'd like to upgrade to the MarketAI Global ${plan.name} plan ($${plan.amountUSD}/month). My email is ${session?.user?.email}`);
-    window.open(`https://wa.me/+91XXXXXXXXXX?text=${msg}`, '_blank');
+    window.open(`https://wa.me/+919216697461?text=${msg}`, '_blank');
   };
 
   return (
