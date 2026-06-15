@@ -11,6 +11,9 @@ import Generator from './pages/Generator';
 import History from './pages/History';
 import Settings from './pages/Settings';
 import Pricing from './pages/Pricing';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import Terms from './pages/Terms';
+import RefundPolicy from './pages/RefundPolicy';
 
 function PrivateRoute({ session, children }) {
   if (!session) return <Navigate to="/login" replace />;
@@ -45,6 +48,9 @@ export default function App() {
         <Route path="/login" element={session ? <Navigate to="/dashboard" /> : <Login />} />
         <Route path="/signup" element={session ? <Navigate to="/dashboard" /> : <Signup />} />
         <Route path="/pricing" element={<Pricing session={session} />} />
+        <Route path="/privacy" element={<PrivacyPolicy session={session} />} />
+        <Route path="/terms" element={<Terms session={session} />} />
+        <Route path="/refund" element={<RefundPolicy session={session} />} />
         <Route path="/dashboard" element={<PrivateRoute session={session}><Dashboard session={session} /></PrivateRoute>} />
         <Route path="/generate" element={<PrivateRoute session={session}><Generator session={session} /></PrivateRoute>} />
         <Route path="/history" element={<PrivateRoute session={session}><History session={session} /></PrivateRoute>} />
