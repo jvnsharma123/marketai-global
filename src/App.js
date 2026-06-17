@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-// Lazy load pages to catch import errors
 const Landing = React.lazy(() => import('./pages/Landing'));
 const Login = React.lazy(() => import('./pages/Login'));
 const Signup = React.lazy(() => import('./pages/Signup'));
@@ -15,6 +14,8 @@ const Pricing = React.lazy(() => import('./pages/Pricing'));
 const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy'));
 const Terms = React.lazy(() => import('./pages/Terms'));
 const RefundPolicy = React.lazy(() => import('./pages/RefundPolicy'));
+const ForgotPassword = React.lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -36,23 +37,21 @@ function LoadingScreen() {
   );
 }
 
-function ErrorBoundary({ children }) {
-  const [error, setError] = React.useState(null);
-  if (error) return (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'100vh', padding:'2rem', textAlign:'center' }}>
-      <h1 style={{ fontSize:'1.5rem', fontWeight:800, marginBottom:'1rem' }}>Something went wrong</h1>
-      <p style={{ color:'#64748b', marginBottom:'1rem' }}>{error.message}</p>
-      <button onClick={() => window.location.reload()} style={{ padding:'0.65rem 1.4rem', background:'#6366f1', color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontWeight:600 }}>
-        Reload page
-      </button>
-    </div>
-  );
-  return <ErrorCatcher setError={setError}>{children}</ErrorCatcher>;
-}
-
 class ErrorCatcher extends React.Component {
-  componentDidCatch(error) { this.props.setError(error); }
-  render() { return this.props.children; }
+  constructor(props) { super(props); this.state = { error: null }; }
+  componentDidCatch(error) { this.setState({ error }); }
+  render() {
+    if (this.state.error) return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'100vh', padding:'2rem', textAlign:'center' }}>
+        <h1 style={{ fontSize:'1.5rem', fontWeight:800, marginBottom:'1rem' }}>Something went wrong</h1>
+        <p style={{ color:'#64748b', marginBottom:'1.5rem' }}>{this.state.error.message}</p>
+        <button onClick={() => window.location.reload()} style={{ padding:'0.65rem 1.4rem', background:'#6366f1', color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontWeight:600 }}>
+          Reload page
+        </button>
+      </div>
+    );
+    return this.props.children;
+  }
 }
 
 export default function App() {
@@ -74,7 +73,7 @@ export default function App() {
   if (loading) return <LoadingScreen />;
 
   return (
-    <ErrorBoundary>
+    <ErrorCatcher>
       <BrowserRouter>
         <React.Suspense fallback={<LoadingScreen />}>
           <Routes>
@@ -85,6 +84,8 @@ export default function App() {
             <Route path="/privacy" element={<PrivacyPolicy session={session} />} />
             <Route path="/terms" element={<Terms session={session} />} />
             <Route path="/refund" element={<RefundPolicy session={session} />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/dashboard" element={<PrivateRoute session={session}><Dashboard session={session} /></PrivateRoute>} />
             <Route path="/generate" element={<PrivateRoute session={session}><Generator session={session} /></PrivateRoute>} />
             <Route path="/history" element={<PrivateRoute session={session}><History session={session} /></PrivateRoute>} />
@@ -93,6 +94,6 @@ export default function App() {
           </Routes>
         </React.Suspense>
       </BrowserRouter>
-    </ErrorBoundary>
+    </ErrorCatcher>
   );
 }
