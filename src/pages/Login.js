@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/api';
+import { createClient } from '@supabase/supabase-js';
 import Navbar from '../components/Navbar';
+
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_ANON_KEY
+);
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -37,7 +42,7 @@ export default function Login() {
           <p style={{ color: '#64748b', marginBottom: '1.5rem', fontSize: '0.9rem' }}>Log in to your MarketAI account</p>
           {error && <div className="alert alert-error">{error}</div>}
 
-          {/* Google Login Button */}
+          {/* Google Login */}
           <button
             onClick={handleGoogleLogin}
             disabled={googleLoading}
@@ -59,7 +64,12 @@ export default function Login() {
               <input className="form-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" required />
             </div>
             <div className="form-group">
-              <label className="form-label">Password</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <label className="form-label" style={{ margin: 0 }}>Password</label>
+                <Link to="/forgot-password" style={{ fontSize: '0.82rem', color: '#6366f1', fontWeight: 600, textDecoration: 'none' }}>
+                  Forgot password?
+                </Link>
+              </div>
               <input className="form-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
             </div>
             <button type="submit" className="btn btn-primary btn-full" disabled={loading} style={{ marginTop: '0.5rem' }}>
