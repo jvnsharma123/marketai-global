@@ -8,7 +8,9 @@ export default async function handler(req, res) {
   const { businessName, businessType, offer, audience, country, language, tone } = req.body;
   if (!offer || !audience) return res.status(400).json({ error: 'Offer and audience are required' });
 
-  const prompt = `You are an expert digital marketing copywriter for businesses worldwide.
+  const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
+
+  const textPrompt = `You are an expert digital marketing copywriter for businesses worldwide.
 
 Business Name: ${businessName || 'Our Business'}
 Business Type: ${businessType || 'Business'}
@@ -35,48 +37,74 @@ EMAIL CAMPAIGN:
 Subject: [compelling subject line]
 Body: [3 short paragraphs: hook, value proposition, call to action. Under 150 words.]`;
 
-  try {
-    const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
+  const imagePrompt = `Create a professional social media marketing image for a ${businessType || 'business'} promoting: ${offer}. Target audience: ${audience}. Country: ${country || 'Global'}. Style: ${tone || 'Professional'}, modern, eye-catching, suitable for Instagram and Facebook. Include relevant visual elements but NO text overlays. Clean background, vibrant colors, high quality.`;
 
-    // Try with x-goog-api-key header (works with both AIzaSy and AQ. format keys)
-    const response = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent',
-      {
+  try {
+    // Generate text and image in parallel
+    const [textResponse, imageResponse] = await Promise.allSettled([
+      // Text generation
+      fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': GEMINI_API_KEY
-        },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ parts: [{ text: textPrompt }] }],
           generationConfig: { temperature: 0.8, maxOutputTokens: 1024 }
         })
-      }
-    );
+      }),
+      // Image generation
+      fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: imagePrompt }] }],
+          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+        })
+      })
+    ]);
 
-    if (!response.ok) {
-      const errData = await response.json();
-      console.error('Gemini error:', JSON.stringify(errData));
-      return res.status(500).json({ error: 'AI generation failed', details: errData });
+    // Parse text response
+    let textResult = {};
+    if (textResponse.status === 'fulfilled' && textResponse.value.ok) {
+      const textData = await textResponse.value.json();
+      const text = textData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const extract = (start, end) => {
+        const startIdx = text.indexOf(start);
+        if (startIdx === -1) return '';
+        const from = startIdx + start.length;
+        const endIdx = end ? text.indexOf(end, from) : text.length;
+        return text.slice(from, endIdx === -1 ? text.length : endIdx).trim();
+      };
+      textResult = {
+        social_post: extract('SOCIAL MEDIA POST:\n', 'WHATSAPP MESSAGE:'),
+        whatsapp_message: extract('WHATSAPP MESSAGE:\n', 'AD COPY:'),
+        ad_copy: extract('AD COPY:\n', 'EMAIL CAMPAIGN:'),
+        email_campaign: extract('EMAIL CAMPAIGN:\n', null),
+      };
+    } else {
+      return res.status(500).json({ error: 'Text generation failed' });
     }
 
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-    const extract = (start, end) => {
-      const startIdx = text.indexOf(start);
-      if (startIdx === -1) return '';
-      const from = startIdx + start.length;
-      const endIdx = end ? text.indexOf(end, from) : text.length;
-      return text.slice(from, endIdx === -1 ? text.length : endIdx).trim();
-    };
+    // Parse image response
+    let imageBase64 = null;
+    let imageMimeType = 'image/png';
+    if (imageResponse.status === 'fulfilled' && imageResponse.value.ok) {
+      const imageData = await imageResponse.value.json();
+      const parts = imageData.candidates?.[0]?.content?.parts || [];
+      for (const part of parts) {
+        if (part.inlineData) {
+          imageBase64 = part.inlineData.data;
+          imageMimeType = part.inlineData.mimeType || 'image/png';
+          break;
+        }
+      }
+    }
+    // Image generation failure is non-fatal — we still return text
 
     return res.status(200).json({
-      social_post: extract('SOCIAL MEDIA POST:\n', 'WHATSAPP MESSAGE:'),
-      whatsapp_message: extract('WHATSAPP MESSAGE:\n', 'AD COPY:'),
-      ad_copy: extract('AD COPY:\n', 'EMAIL CAMPAIGN:'),
-      email_campaign: extract('EMAIL CAMPAIGN:\n', null),
+      ...textResult,
+      image: imageBase64 ? `data:${imageMimeType};base64,${imageBase64}` : null,
     });
+
   } catch (err) {
     console.error('Server error:', err);
     return res.status(500).json({ error: 'Server error', message: err.message });
