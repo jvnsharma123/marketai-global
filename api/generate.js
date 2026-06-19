@@ -52,7 +52,7 @@ Body: [3 short paragraphs: hook, value proposition, call to action. Under 150 wo
         })
       }),
       // Image generation
-      fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent', {
+      fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
         body: JSON.stringify({
@@ -97,6 +97,12 @@ Body: [3 short paragraphs: hook, value proposition, call to action. Under 150 wo
           break;
         }
       }
+      if (!imageBase64) console.error('Image response had no inlineData:', JSON.stringify(imageData).slice(0, 500));
+    } else if (imageResponse.status === 'fulfilled') {
+      const errBody = await imageResponse.value.text();
+      console.error('Image generation HTTP error:', imageResponse.value.status, errBody.slice(0, 500));
+    } else {
+      console.error('Image generation request failed:', imageResponse.reason);
     }
     // Image generation failure is non-fatal — we still return text
 
