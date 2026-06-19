@@ -2,7 +2,6 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  console.log('GENERATE.JS VERSION: v2-gemini25-' + new Date().toISOString());
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -38,12 +37,13 @@ EMAIL CAMPAIGN:
 Subject: [compelling subject line]
 Body: [3 short paragraphs: hook, value proposition, call to action. Under 150 words.]`;
 
-  const imagePrompt = `Create a professional social media marketing image for a ${businessType || 'business'} promoting: ${offer}. Target audience: ${audience}. Country: ${country || 'Global'}. Style: ${tone || 'Professional'}, modern, eye-catching, suitable for Instagram and Facebook. Include relevant visual elements but NO text overlays. Clean background, vibrant colors, high quality.`;
+  // Simple, clean prompt for Pollinations image generation (Flux model)
+  const imagePromptText = `professional marketing photo, ${businessType || 'business'}, ${offer}, for ${audience}, clean modern advertising style, vibrant colors, high quality, no text, no watermark`;
+  const imageUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(imagePromptText)}?width=1024&height=1024&model=flux&nologo=true`;
 
   try {
-    // Generate text and image in parallel
+    // Run text generation and image fetch in parallel
     const [textResponse, imageResponse] = await Promise.allSettled([
-      // Text generation
       fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
@@ -52,15 +52,7 @@ Body: [3 short paragraphs: hook, value proposition, call to action. Under 150 wo
           generationConfig: { temperature: 0.8, maxOutputTokens: 1024 }
         })
       }),
-      // Image generation
-      fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: imagePrompt }] }],
-          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
-        })
-      })
+      fetch(imageUrl)
     ]);
 
     // Parse text response
@@ -82,34 +74,25 @@ Body: [3 short paragraphs: hook, value proposition, call to action. Under 150 wo
         email_campaign: extract('EMAIL CAMPAIGN:\n', null),
       };
     } else {
+      console.error('Text generation failed:', textResponse.status === 'fulfilled' ? await textResponse.value.text() : textResponse.reason);
       return res.status(500).json({ error: 'Text generation failed' });
     }
 
-    // Parse image response
-    let imageBase64 = null;
-    let imageMimeType = 'image/png';
+    // Parse image response — convert to base64 data URL
+    let imageDataUrl = null;
     if (imageResponse.status === 'fulfilled' && imageResponse.value.ok) {
-      const imageData = await imageResponse.value.json();
-      const parts = imageData.candidates?.[0]?.content?.parts || [];
-      for (const part of parts) {
-        if (part.inlineData) {
-          imageBase64 = part.inlineData.data;
-          imageMimeType = part.inlineData.mimeType || 'image/png';
-          break;
-        }
-      }
-      if (!imageBase64) console.error('Image response had no inlineData:', JSON.stringify(imageData).slice(0, 500));
-    } else if (imageResponse.status === 'fulfilled') {
-      const errBody = await imageResponse.value.text();
-      console.error('Image generation HTTP error:', imageResponse.value.status, errBody.slice(0, 500));
+      const buffer = await imageResponse.value.arrayBuffer();
+      const base64 = Buffer.from(buffer).toString('base64');
+      const contentType = imageResponse.value.headers.get('content-type') || 'image/jpeg';
+      imageDataUrl = `data:${contentType};base64,${base64}`;
     } else {
-      console.error('Image generation request failed:', imageResponse.reason);
+      console.error('Image generation failed:', imageResponse.status === 'fulfilled' ? imageResponse.value.status : imageResponse.reason);
     }
-    // Image generation failure is non-fatal — we still return text
+    // Image failure is non-fatal — text content still returns
 
     return res.status(200).json({
       ...textResult,
-      image: imageBase64 ? `data:${imageMimeType};base64,${imageBase64}` : null,
+      image: imageDataUrl,
     });
 
   } catch (err) {
