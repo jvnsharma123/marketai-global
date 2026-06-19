@@ -1,8 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, generateMarketingContent } from '../lib/api';
+import { createClient } from '@supabase/supabase-js';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import MobileNav from '../components/MobileNav';
+
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_ANON_KEY
+);
+
+async function generateMarketingContent(params) {
+  const response = await fetch('/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params)
+  });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error || 'Generation failed');
+  }
+  return response.json();
+}
 
 const LANGUAGES = ['English','Hindi','Tamil','Telugu','Kannada','Malayalam','Marathi','Bengali','Gujarati','Punjabi','Spanish','French','German','Arabic','Mandarin','Portuguese','Indonesian','Swahili','Japanese','Korean'];
 const TONES = ['Professional','Friendly','Urgent','Playful','Inspirational','Luxury','Minimal'];
@@ -28,7 +46,13 @@ export default function Generator({ session }) {
       .then(({ data }) => {
         if (data) {
           setProfile(data);
-          setForm(f => ({ ...f, businessName: data.business_name || '', businessType: data.business_type || '', country: data.country || '', language: data.language || 'English', tone: data.tone || 'Professional' }));
+          setForm(f => ({ ...f,
+            businessName: data.business_name || '',
+            businessType: data.business_type || '',
+            country: data.country || '',
+            language: data.language || 'English',
+            tone: data.tone || 'Professional'
+          }));
         }
       });
   }, [session]);
@@ -49,7 +73,7 @@ export default function Generator({ session }) {
       await supabase.from('profiles').update({ generations_used: used + 1 }).eq('id', session.user.id);
       setProfile(p => ({ ...p, generations_used: used + 1 }));
     } catch (err) {
-      setError('Generation failed. Please check your API key and try again.');
+      setError('Generation failed. Please try again.');
     }
     setLoading(false);
   };
@@ -57,10 +81,17 @@ export default function Generator({ session }) {
   const handleSave = async () => {
     if (!result) return;
     await supabase.from('generated_content').insert({
-      user_id: session.user.id, business_name: form.businessName, offer: form.offer,
-      target_audience: form.audience, country: form.country, language: form.language,
-      social_post: result.social_post, whatsapp_message: result.whatsapp_message,
-      ad_copy: result.ad_copy, email_campaign: result.email_campaign, is_saved: true,
+      user_id: session.user.id,
+      business_name: form.businessName,
+      offer: form.offer,
+      target_audience: form.audience,
+      country: form.country,
+      language: form.language,
+      social_post: result.social_post,
+      whatsapp_message: result.whatsapp_message,
+      ad_copy: result.ad_copy,
+      email_campaign: result.email_campaign,
+      is_saved: true,
     });
     setSaved(true);
   };
@@ -71,6 +102,14 @@ export default function Generator({ session }) {
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleDownloadImage = () => {
+    if (!result?.image) return;
+    const link = document.createElement('a');
+    link.href = result.image;
+    link.download = `marketai-${form.businessName || 'post'}-${Date.now()}.png`;
+    link.click();
+  };
+
   return (
     <div>
       <Navbar session={session} />
@@ -79,11 +118,11 @@ export default function Generator({ session }) {
         <main className="main-content">
           <div className="page-header">
             <h1>✦ Generate Content</h1>
-            <p>Fill in your details and get all marketing content in one click</p>
+            <p>AI generates text content + a social media image in one click</p>
           </div>
 
           <div className="generator-grid">
-            {/* Input form */}
+            {/* ── Input form ── */}
             <div className="card">
               <h2 style={{ fontWeight: 700, marginBottom: '1rem', fontSize: '1rem' }}>Your business details</h2>
               {error && <div className="alert alert-error">{error}</div>}
@@ -131,42 +170,85 @@ export default function Generator({ session }) {
                 <div className="usage-bar"><div className="usage-fill" style={{ width: `${planLimit === -1 ? 5 : Math.min((used/planLimit)*100,100)}%` }} /></div>
               </div>
               <button className="btn btn-primary btn-full" onClick={handleGenerate} disabled={loading || !canGenerate} style={{ fontSize: '0.95rem', padding: '0.75rem' }}>
-                {loading ? <><span className="spinner" />  Generating...</> : canGenerate ? '✦ Generate all content' : '⚠ Limit reached — upgrade'}
+                {loading
+                  ? <><span className="spinner" />  Generating text + image...</>
+                  : canGenerate
+                    ? '✦ Generate content + image'
+                    : '⚠ Limit reached — upgrade'}
               </button>
+              <p style={{ fontSize: '0.75rem', color: '#94a3b8', textAlign: 'center', marginTop: 6 }}>
+                Generates social post, WhatsApp, ad copy, email + AI image
+              </p>
             </div>
 
-            {/* Output */}
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h2 style={{ fontWeight: 700, fontSize: '1rem' }}>Generated content</h2>
-                {result && (
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn btn-secondary btn-sm" onClick={handleCopy}>{copied ? '✓' : 'Copy'}</button>
-                    <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saved}>{saved ? '✓ Saved' : 'Save'}</button>
+            {/* ── Output ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+              {/* AI Image */}
+              <div className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+                  <h2 style={{ fontWeight: 700, fontSize: '1rem' }}>🖼 AI Generated Image</h2>
+                  {result?.image && (
+                    <button className="btn btn-primary btn-sm" onClick={handleDownloadImage}>
+                      ↓ Download
+                    </button>
+                  )}
+                </div>
+                {loading ? (
+                  <div style={{ height: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: '#f8fafc', borderRadius: 10, color: '#64748b' }}>
+                    <div className="spinner" style={{ width: 28, height: 28 }} />
+                    <p style={{ fontSize: '0.85rem' }}>Generating image...</p>
+                  </div>
+                ) : result?.image ? (
+                  <img
+                    src={result.image}
+                    alt="AI generated marketing visual"
+                    style={{ width: '100%', borderRadius: 10, display: 'block', maxHeight: 280, objectFit: 'cover' }}
+                  />
+                ) : result && !result.image ? (
+                  <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', borderRadius: 10 }}>
+                    <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Image generation unavailable — text content generated successfully</p>
+                  </div>
+                ) : (
+                  <div style={{ height: 160, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', borderRadius: 10, gap: 8 }}>
+                    <span style={{ fontSize: '2rem' }}>🖼</span>
+                    <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>AI image will appear here after generation</p>
                   </div>
                 )}
               </div>
-              {result && (
-                <div className="tabs">
-                  {TABS.map(t => (
-                    <button key={t.key} className={`tab ${activeTab === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>{t.label}</button>
-                  ))}
+
+              {/* Text content */}
+              <div className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+                  <h2 style={{ fontWeight: 700, fontSize: '1rem' }}>📝 Marketing Copy</h2>
+                  {result && (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn-secondary btn-sm" onClick={handleCopy}>{copied ? '✓' : 'Copy'}</button>
+                      <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saved}>{saved ? '✓ Saved' : 'Save'}</button>
+                    </div>
+                  )}
                 </div>
-              )}
-              {loading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 200, gap: 12, color: '#64748b' }}>
-                  <div className="spinner" style={{ width: 32, height: 32 }} />
-                  <p style={{ fontSize: '0.9rem' }}>Generating your content...</p>
-                </div>
-              ) : result ? (
-                <div className="output-box" style={{ minHeight: 200 }}>{result[activeTab] || 'No content for this channel.'}</div>
-              ) : (
-                <div className="empty-state" style={{ minHeight: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <div className="icon">✦</div>
-                  <p style={{ fontWeight: 600, color: '#64748b', fontSize: '0.9rem' }}>Fill in your details and click Generate</p>
-                  <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: 4 }}>All 4 channels in one click</p>
-                </div>
-              )}
+                {result && (
+                  <div className="tabs">
+                    {TABS.map(t => (
+                      <button key={t.key} className={`tab ${activeTab === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>{t.label}</button>
+                    ))}
+                  </div>
+                )}
+                {loading ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 150, gap: 12, color: '#64748b' }}>
+                    <div className="spinner" style={{ width: 28, height: 28 }} />
+                    <p style={{ fontSize: '0.85rem' }}>Writing your copy...</p>
+                  </div>
+                ) : result ? (
+                  <div className="output-box" style={{ minHeight: 150 }}>{result[activeTab] || 'No content for this channel.'}</div>
+                ) : (
+                  <div style={{ minHeight: 150, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    <span style={{ fontSize: '1.5rem' }}>✦</span>
+                    <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Marketing copy will appear here</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </main>
