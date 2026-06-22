@@ -3,10 +3,10 @@ import { Link, useLocation } from 'react-router-dom';
 
 const links = [
   { to: '/dashboard', icon: '⊞', label: 'Home' },
-  { to: '/generate',  icon: '✦', label: 'Generate' },
-  { to: '/history',   icon: '◷', label: 'History' },
-  { to: '/settings',  icon: '⚙', label: 'Settings' },
-  { to: '/pricing',   icon: '◈', label: 'Upgrade' },
+  { to: '/generate', icon: '✦', label: 'Text' },
+  { to: '/carousel', icon: '🎞', label: 'Carousel' },
+  { to: '/history', icon: '◷', label: 'History' },
+  { to: '/pricing', icon: '◈', label: 'Upgrade' },
 ];
 
 export default function MobileNav() {
