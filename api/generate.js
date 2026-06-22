@@ -38,8 +38,9 @@ Subject: [compelling subject line]
 Body: [3 short paragraphs: hook, value proposition, call to action. Under 150 words.]`;
 
   // Simple, clean prompt for Pollinations image generation (Flux model)
+  const POLLINATIONS_KEY = process.env.POLLINATIONS_API_KEY;
   const imagePromptText = `professional marketing photo, ${businessType || 'business'}, ${offer}, for ${audience}, clean modern advertising style, vibrant colors, high quality, no text, no watermark`;
-  const imageUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(imagePromptText)}?width=1024&height=1024&model=flux&nologo=true`;
+  const imageUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(imagePromptText)}?width=1024&height=1024&model=flux&nologo=true&key=${POLLINATIONS_KEY}`;
 
   try {
     // Run text generation and image fetch in parallel
