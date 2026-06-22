@@ -8,6 +8,7 @@ const Login = React.lazy(() => import('./pages/Login'));
 const Signup = React.lazy(() => import('./pages/Signup'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Generator = React.lazy(() => import('./pages/Generator'));
+const Carousel = React.lazy(() => import('./pages/Carousel'));
 const History = React.lazy(() => import('./pages/History'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const Pricing = React.lazy(() => import('./pages/Pricing'));
@@ -88,6 +89,7 @@ export default function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/dashboard" element={<PrivateRoute session={session}><Dashboard session={session} /></PrivateRoute>} />
             <Route path="/generate" element={<PrivateRoute session={session}><Generator session={session} /></PrivateRoute>} />
+            <Route path="/carousel" element={<PrivateRoute session={session}><Carousel session={session} /></PrivateRoute>} />
             <Route path="/history" element={<PrivateRoute session={session}><History session={session} /></PrivateRoute>} />
             <Route path="/settings" element={<PrivateRoute session={session}><Settings session={session} /></PrivateRoute>} />
             <Route path="*" element={<Navigate to="/" />} />
