@@ -3,11 +3,12 @@ import { Link, useLocation } from 'react-router-dom';
 
 const links = [
   { to: '/dashboard', icon: '⊞', label: 'Dashboard' },
-  { to: '/generate', icon: '✦', label: 'Generate' },
-  { to: '/carousel', icon: '🎞', label: 'Carousel' },
-  { to: '/history', icon: '◷', label: 'History' },
-  { to: '/settings', icon: '⚙', label: 'Settings' },
-  { to: '/pricing', icon: '◈', label: 'Upgrade' },
+  { to: '/generate',  icon: '✦', label: 'Generate' },
+  { to: '/carousel',  icon: '🎞', label: 'Carousel' },
+  { to: '/calendar',  icon: '📅', label: 'Calendar' },
+  { to: '/history',   icon: '◷', label: 'History' },
+  { to: '/settings',  icon: '⚙', label: 'Settings' },
+  { to: '/pricing',   icon: '◈', label: 'Upgrade' },
 ];
 
 export default function Sidebar() {
